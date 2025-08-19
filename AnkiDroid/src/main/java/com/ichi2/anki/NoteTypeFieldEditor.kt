@@ -330,44 +330,51 @@ class NoteTypeFieldEditor : AnkiActivity() {
      * Processing time is constant
      */
     private fun renameFieldDialog() {
-        fieldNameInput = FixedEditText(this).apply { focusWithKeyboard() }
-        fieldNameInput?.let { fieldNameInput ->
-            fieldNameInput.isSingleLine = true
-            fieldNameInput.setText(fieldsLabels[currentPos])
-            fieldNameInput.setSelection(fieldNameInput.text!!.length)
-            AlertDialog.Builder(this).show {
-                customView(view = fieldNameInput, paddingStart = 64, paddingEnd = 64, paddingTop = 32)
-                title(R.string.model_field_editor_rename)
-                positiveButton(R.string.rename) {
-                    if (uniqueName(fieldNameInput) == null) {
-                        return@positiveButton
-                    }
-                    // Field is valid, now rename
-                    try {
-                        renameField()
-                    } catch (e: ConfirmModSchemaException) {
-                        e.log()
+        val dialog =
+            AlertDialog
+                .Builder(this)
+                .show {
+                    title(R.string.model_field_editor_rename)
+                    positiveButton(R.string.rename) {
+                        try {
+                            renameField()
+                        } catch (e: ConfirmModSchemaException) {
+                            e.log()
 
-                        // Handler mod schema confirmation
-                        val c = ConfirmationDialog()
-                        c.setArgs(resources.getString(R.string.full_sync_confirmation))
-                        val confirm =
-                            Runnable {
-                                getColUnsafe.modSchemaNoCheck()
-                                try {
-                                    renameField()
-                                } catch (e1: ConfirmModSchemaException) {
-                                    e1.log()
-                                    // This should never be thrown
+                            // Handler mod schema confirmation
+                            val c = ConfirmationDialog()
+                            c.setArgs(resources.getString(R.string.full_sync_confirmation))
+                            val confirm =
+                                Runnable {
+                                    getColUnsafe.modSchemaNoCheck()
+                                    try {
+                                        renameField()
+                                    } catch (e1: ConfirmModSchemaException) {
+                                        e1.log()
+                                        // This should never be thrown
+                                    }
                                 }
-                            }
-                        c.setConfirm(confirm)
-                        this@NoteTypeFieldEditor.showDialogFragment(c)
+                            c.setConfirm(confirm)
+                            this@NoteTypeFieldEditor.showDialogFragment(c)
+                        }
                     }
-                }
-                negativeButton(R.string.dialog_cancel)
-            }
-        }
+                    negativeButton(R.string.dialog_cancel)
+                    setView(R.layout.dialog_generic_text_input)
+                }.input(
+                    prefill = fieldsLabels[currentPos],
+                    waitForPositiveButton = false,
+                    displayKeyboard = true,
+                    callback = { dialog, text ->
+                        // Only enable if user has actually changed the name
+                        val newName = text.toString()
+                        dialog.positiveButton.isEnabled =
+                            newName.isNotEmpty() &&
+                            newName != fieldsLabels[currentPos] &&
+                            uniqueName(dialog.getInputField()) != null
+                    },
+                )
+
+        dialog.positiveButton.isEnabled = false
     }
 
     /**
